@@ -9,8 +9,16 @@
 	<td><?= h($biditem->name) ?></td>
 </tr>
 <tr>
+	<th scope="row">出品画像</th>
+	<td><?= $this->Html->image('auction/'. h($biditem->picture_name)) ?></td>
+</tr>
+<tr>
 	<th scope="row">商品ID</th>
 	<td><?= $this->Number->format($biditem->id) ?></td>
+</tr>
+<tr>
+	<th scope="row">詳細情報</th>
+	<td><?= nl2br(h($biditem->detail)) ?></td>
 </tr>
 <tr>
 	<th scope="row">終了時間</th>
