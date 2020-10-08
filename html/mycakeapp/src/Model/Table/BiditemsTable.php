@@ -78,7 +78,7 @@ class BiditemsTable extends Table
             ->maxLength('detail', 1000, '最大文字数を超過しています。(1000文字いないで入力してください)')
             ->requirePresence('detail', 'create')
             ->notEmptyString('detail', '必ず入力してください。');
-        
+
         $validator
             ->scalar('picture_name')
             ->requirePresence('picture_name', 'create')
