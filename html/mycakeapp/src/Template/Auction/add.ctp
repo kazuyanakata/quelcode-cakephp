@@ -5,9 +5,7 @@
 <fieldset>
 	<legend>※商品名と終了日時を入力：</legend>
 	<?php
-
-use function PHPSTORM_META\type;
-
+	
 echo $this->Form->hidden('user_id', ['value' => $authuser['id']]);
 		echo '<p><strong>USER: ' . $authuser['username'] . '</strong></p>';
 		echo $this->Form->control('name');
