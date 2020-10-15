@@ -1,10 +1,12 @@
 <?php
+
 namespace App\Controller;
 
 use App\Controller\AppController;
-
+use App\Model\Entity\Shipping;
 use Cake\Event\Event; // added.
 use Exception; // added.
+use Cake\I18n\Time;
 
 class AuctionController extends AuctionBaseController
 {
@@ -22,6 +24,8 @@ class AuctionController extends AuctionBaseController
 		$this->loadModel('Bidrequests');
 		$this->loadModel('Bidinfo');
 		$this->loadModel('Bidmessages');
+		$this->loadModel('Shippings');
+		$this->loadModel('Evaluations');
 		// ログインしているユーザー情報をauthuserに設定
 		$this->set('authuser', $this->Auth->user());
 		// レイアウトをauctionに変更
@@ -33,8 +37,9 @@ class AuctionController extends AuctionBaseController
 	{
 		// ページネーションでBiditemsを取得
 		$auction = $this->paginate('Biditems', [
-			'order' =>['endtime'=>'desc'], 
-			'limit' => 10]);
+			'order' => ['endtime' => 'desc'],
+			'limit' => 10
+		]);
 		$this->set(compact('auction'));
 	}
 
@@ -56,11 +61,12 @@ class AuctionController extends AuctionBaseController
 			$bidinfo->biditem_id = $id;
 			// 最高金額のBidrequestを検索
 			$bidrequest = $this->Bidrequests->find('all', [
-				'conditions'=>['biditem_id'=>$id], 
+				'conditions' => ['biditem_id' => $id],
 				'contain' => ['Users'],
-				'order'=>['price'=>'desc']])->first();
+				'order' => ['price' => 'desc']
+			])->first();
 			// Bidrequestが得られた時の処理
-			if (!empty($bidrequest)){
+			if (!empty($bidrequest)) {
 				// Bidinfoの各種プロパティを設定して保存する
 				$bidinfo->user_id = $bidrequest->user->id;
 				$bidinfo->user = $bidrequest->user;
@@ -68,13 +74,14 @@ class AuctionController extends AuctionBaseController
 				$this->Bidinfo->save($bidinfo);
 			}
 			// Biditemのbidinfoに$bidinfoを設定
-			$biditem->bidinfo = $bidinfo;		
+			$biditem->bidinfo = $bidinfo;
 		}
 		// Bidrequestsからbiditem_idが$idのものを取得
 		$bidrequests = $this->Bidrequests->find('all', [
-			'conditions'=>['biditem_id'=>$id], 
+			'conditions' => ['biditem_id' => $id],
 			'contain' => ['Users'],
-			'order'=>['price'=>'desc']])->toArray();
+			'order' => ['price' => 'desc']
+		])->toArray();
 		// オブジェクト類をテンプレート用に設定
 		$this->set(compact('biditem', 'bidrequests'));
 	}
@@ -119,7 +126,7 @@ class AuctionController extends AuctionBaseController
 				// 成功時のメッセージ
 				$this->Flash->success(__('入札を送信しました。'));
 				// トップページにリダイレクト
-				return $this->redirect(['action'=>'view', $biditem_id]);
+				return $this->redirect(['action' => 'view', $biditem_id]);
 			}
 			// 失敗時のメッセージ
 			$this->Flash->error(__('入札に失敗しました。もう一度入力下さい。'));
@@ -128,7 +135,7 @@ class AuctionController extends AuctionBaseController
 		$biditem = $this->Biditems->get($biditem_id);
 		$this->set(compact('bidrequest', 'biditem'));
 	}
-	
+
 	// 落札者とのメッセージ
 	public function msg($bidinfo_id = null)
 	{
@@ -146,16 +153,69 @@ class AuctionController extends AuctionBaseController
 			}
 		}
 		try { // $bidinfo_idからBidinfoを取得する
-			$bidinfo = $this->Bidinfo->get($bidinfo_id, ['contain'=>['Biditems']]);
-		} catch(Exception $e){
+			$bidinfo = $this->Bidinfo->get($bidinfo_id, ['contain' => ['Biditems']]);
+		} catch (Exception $e) {
 			$bidinfo = null;
 		}
 		// Bidmessageをbidinfo_idとuser_idで検索
-		$bidmsgs = $this->Bidmessages->find('all',[
-			'conditions'=>['bidinfo_id'=>$bidinfo_id],
+		$bidmsgs = $this->Bidmessages->find('all', [
+			'conditions' => ['bidinfo_id' => $bidinfo_id],
 			'contain' => ['Users'],
-			'order'=>['created'=>'desc']]);
+			'order' => ['created' => 'desc']
+		]);
 		$this->set(compact('bidmsgs', 'bidinfo', 'bidmsg'));
+	}
+
+	// 配送情報の表示
+	public function interact($bidinfo_id)
+	{
+		$bidinfo = $this->Bidinfo->get($bidinfo_id, ['contain' => ['Biditems']]); //該当する落札情報抽出
+		$loginId = $this->Auth->user('id'); //ログイン中のユーザーID
+		$entity = $this->Shippings->newEntity();
+		try { //発送先情報が既にあれば抽出し、無ければnullにする
+			$shipping = $this->Shippings->get($bidinfo_id);
+		} catch (Exception $e) {
+			$shipping = null;
+		}
+		// 出品者と落札者のみアクセス可能にし、それ以外のユーザーのアクセスの場合はindexへ戻す。
+		if ($bidinfo->user_id === $loginId || $bidinfo->biditem->user_id === $loginId) {
+			if ($this->request->is('post') && isset($this->request->data['info'])) { //配送先に関するフォーム送信があった場合
+				$data = $this->request->data['info'];
+				$data['is_sent'] = 0;
+				$data['is_received'] = 0;
+				$data['created'] = Time::now();
+				$data['updated'] = Time::now();
+				$shipping = $this->Shippings->newEntity($data);
+				if (!empty($shipping) && $this->Shippings->save($shipping)) {
+					$this->Flash->success(__('発送先情報を保存しました。'));
+				} elseif (!empty($shipping)) {
+					$entity = $shipping;
+					$shipping['error'] = 1;
+					$this->Flash->error(__('発送先情報の保存に失敗しました。もう一度入力下さい。'));
+				}
+			} elseif ($this->request->is('post') && isset($this->request->data['send'])) { //発送ボタンが押された場合
+				$shipping = $this->Shippings->get($this->request->data['send']['bidinfo_id']);
+				$shipping->is_sent = 1;
+				$shipping->updated = Time::now();
+				if (!empty($shipping) && $this->Shippings->save($shipping)) {
+					$this->Flash->success(__('配送確認いたしました。'));
+				} elseif (!empty($shipping)) {
+					$this->Flash->error(__('配送確認に失敗しました。もう一度ボタンを押して下さい。'));
+				}
+			} elseif ($this->request->is('post') && isset($this->request->data['receive'])) { //受取ボタンが押された場合
+				$shipping = $this->Shippings->get($this->request->data['receive']['bidinfo_id']);
+				$shipping->is_received = 1;
+				$shipping->updated = Time::now();
+				if (!empty($shipping) && $this->Shippings->save($shipping)) {
+					$this->Flash->success(__('受取確認いたしました。'));
+				} elseif (!empty($shipping)) {
+					$this->Flash->error(__('受取確認に失敗しました。もう一度ボタンを押して下さい。'));
+				}
+			}
+		} else {
+			return $this->redirect(['controller' => 'Auction', 'action' => 'index']);
+		}
+		$this->set(compact('bidinfo', 'shipping', 'loginId', 'entity'));
 	}
 
 	// 落札情報の表示
@@ -163,10 +223,11 @@ class AuctionController extends AuctionBaseController
 	{
 		// 自分が落札したBidinfoをページネーションで取得
 		$bidinfo = $this->paginate('Bidinfo', [
-			'conditions'=>['Bidinfo.user_id'=>$this->Auth->user('id')], 
+			'conditions' => ['Bidinfo.user_id' => $this->Auth->user('id')],
 			'contain' => ['Users', 'Biditems'],
-			'order'=>['created'=>'desc'],
-			'limit' => 10])->toArray();
+			'order' => ['created' => 'desc'],
+			'limit' => 10
+		])->toArray();
 		$this->set(compact('bidinfo'));
 	}
 
@@ -175,10 +236,11 @@ class AuctionController extends AuctionBaseController
 	{
 		// 自分が出品したBiditemをページネーションで取得
 		$biditems = $this->paginate('Biditems', [
-			'conditions'=>['Biditems.user_id'=>$this->Auth->user('id')], 
+			'conditions' => ['Biditems.user_id' => $this->Auth->user('id')],
 			'contain' => ['Users', 'Bidinfo'],
-			'order'=>['created'=>'desc'],
-			'limit' => 10])->toArray();
+			'order' => ['created' => 'desc'],
+			'limit' => 10
+		])->toArray();
 		$this->set(compact('biditems'));
 	}
 }
