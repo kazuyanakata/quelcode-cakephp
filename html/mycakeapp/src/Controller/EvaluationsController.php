@@ -156,6 +156,7 @@ class EvaluationsController extends AuctionBaseController
         }
         if ($this->request->is('post')) {
             $data = $this->request->data['evaluate'];
+            $data['bidinfo_id'] = $bidinfo_id;
             $data['from_user_id'] = $loginId;
             if ($bidinfo->user_id === $loginId) { //落札者が評価した場合
                 $data['to_user_id'] = $bidinfo->biditem->user_id;
@@ -164,9 +165,9 @@ class EvaluationsController extends AuctionBaseController
             }
             $data['created'] = Time::now();
             $evaluation = $this->Evaluations->newEntity($data);
-            if (!empty($evaluation) && $this->Evaluations->save($evaluation)) {
+            if ($this->Evaluations->save($evaluation)) {
                 $this->Flash->success(__('評価を送信しました。'));
-            } elseif (!empty($evaluation)) {
+            } else {
                 $entity = $evaluation;
                 $this->Flash->error(__('評価の送信に失敗しました。もう一度入力下さい。'));
             }

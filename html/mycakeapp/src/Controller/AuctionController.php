@@ -182,9 +182,9 @@ class AuctionController extends AuctionBaseController
 			return $this->redirect(['controller' => 'Auction', 'action' => 'index']);
 		}
 		if ($this->request->is('post') && isset($this->request->data['info'])) { //配送先に関するフォーム送信があった場合
-			$bidinfo = $this->Bidinfo->get($this->request->data['info']['bidinfo_id'], ['contain' => ['Biditems']]);
-			if ($bidinfo->user_id === $loginId) { //postにてデータ改ざんがなく、正常な場合
+			if ($bidinfo->user_id === $loginId && empty($shipping)) { //postにてデータ改ざんがなく、正常な場合
 				$data = $this->request->data['info'];
+				$data['bidinfo_id'] = $bidinfo_id;
 				$data['is_sent'] = 0;
 				$data['is_received'] = 0;
 				$data['created'] = Time::now();
@@ -199,9 +199,8 @@ class AuctionController extends AuctionBaseController
 				}
 			}
 		} elseif ($this->request->is('post') && isset($this->request->data['send'])) { //発送ボタンが押された場合
-			$bidinfo = $this->Bidinfo->get($this->request->data['send']['bidinfo_id'], ['contain' => ['Biditems']]);
 			if ($bidinfo->biditem->user_id === $loginId) { //postにてデータ改ざんがなく、正常な場合
-				$shipping = $this->Shippings->get($this->request->data['send']['bidinfo_id']);
+				$shipping = $this->Shippings->get($bidinfo_id);
 				$shipping->is_sent = 1;
 				$shipping->updated = Time::now();
 				if (!empty($shipping) && $this->Shippings->save($shipping)) {
@@ -211,9 +210,8 @@ class AuctionController extends AuctionBaseController
 				}
 			}
 		} elseif ($this->request->is('post') && isset($this->request->data['receive'])) { //受取ボタンが押された場合
-			$bidinfo = $this->Bidinfo->get($this->request->data['receive']['bidinfo_id'], ['contain' => ['Biditems']]);
-			if ($bidinfo->user_id === $loginId) { //postにてデータ改ざんがなく、正常な場合
-				$shipping = $this->Shippings->get($this->request->data['receive']['bidinfo_id']);
+			if ($bidinfo->user_id === $loginId && !empty($shipping) && (int)$shipping->is_sent === 1) { //postにてデータ改ざんがなく、正常な場合
+				$shipping = $this->Shippings->get($bidinfo_id);
 				$shipping->is_received = 1;
 				$shipping->updated = Time::now();
 				if (!empty($shipping) && $this->Shippings->save($shipping)) {
