@@ -21,7 +21,6 @@
       'label' => 'コメント(必須)',
       'maxlength' => 1000
     ]);
-    echo $this->Form->hidden('evaluate.bidinfo_id', ['value' => $bidinfo->id]);
     echo $this->Form->button(__('Submit'));
     echo $this->Form->end();
   } elseif (!empty($evaluation)) {

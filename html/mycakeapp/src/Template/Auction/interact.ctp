@@ -21,7 +21,6 @@
       'label' => '発送先電話番号',
       'maxLength' => 12
     ]);
-    echo $this->Form->hidden('info.bidinfo_id', ['value' => $bidinfo->id]);
     echo $this->Form->button(__('Submit'));
     echo $this->Form->end();
   } elseif (!empty($shipping)) {
@@ -47,7 +46,7 @@
   <?php
   } elseif (!empty($shipping) && (int)$shipping->is_sent === 0) {
     echo $this->Form->create();
-    echo $this->Form->hidden('send.bidinfo_id', ['value' => $bidinfo->id]);
+    echo $this->Form->hidden('send');
     echo $this->Form->button(__('発送しました'));
     echo $this->Form->end();
   } elseif (!empty($shipping) && (int)$shipping->is_sent === 1) {
@@ -68,7 +67,7 @@
   <?php
   } elseif (!empty($shipping) && (int)$shipping->is_sent === 1 && (int)$shipping->is_received === 0) {
     echo $this->Form->create();
-    echo $this->Form->hidden('receive.bidinfo_id', ['value' => $bidinfo->id]);
+    echo $this->Form->hidden('receive');
     echo $this->Form->button(__('受け取りました'));
     echo $this->Form->end();
   } elseif (!empty($shipping) && (int)$shipping->is_sent == 1 && (int)$shipping->is_received === 1) {
