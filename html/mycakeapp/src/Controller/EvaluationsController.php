@@ -151,26 +151,25 @@ class EvaluationsController extends AuctionBaseController
             $evaluation = null;
         }
         // 出品者と落札者のみアクセス可能にし、それ以外のユーザーのアクセスの場合はindexへ戻す。
-        if ($bidinfo->user_id === $loginId || $bidinfo->biditem->user_id === $loginId) {
-            if ($this->request->is('post')) {
-                $data = $this->request->data['evaluate'];
-                $data['from_user_id'] = $loginId;
-                if ($bidinfo->user_id == $loginId) { //落札者が評価した場合
-                    $data['to_user_id'] = $bidinfo->biditem->user_id;
-                } elseif ($bidinfo->biditem->user_id == $loginId) { //出品者が評価した場合
-                    $data['to_user_id'] = $bidinfo->user_id;
-                }
-                $data['created'] = Time::now();
-                $evaluation = $this->Evaluations->newEntity($data);
-                if (!empty($evaluation) && $this->Evaluations->save($evaluation)) {
-                    $this->Flash->success(__('評価を送信しました。'));
-                } elseif (!empty($evaluation)) {
-                    $entity = $evaluation;
-                    $this->Flash->error(__('評価の送信に失敗しました。もう一度入力下さい。'));
-                }
-            }
-        } else {
+        if ($bidinfo->user_id !== $loginId && $bidinfo->biditem->user_id !== $loginId) {
             return $this->redirect(['controller' => 'Auction', 'action' => 'index']);
+        }
+        if ($this->request->is('post')) {
+            $data = $this->request->data['evaluate'];
+            $data['from_user_id'] = $loginId;
+            if ($bidinfo->user_id === $loginId) { //落札者が評価した場合
+                $data['to_user_id'] = $bidinfo->biditem->user_id;
+            } elseif ($bidinfo->biditem->user_id === $loginId) { //出品者が評価した場合
+                $data['to_user_id'] = $bidinfo->user_id;
+            }
+            $data['created'] = Time::now();
+            $evaluation = $this->Evaluations->newEntity($data);
+            if (!empty($evaluation) && $this->Evaluations->save($evaluation)) {
+                $this->Flash->success(__('評価を送信しました。'));
+            } elseif (!empty($evaluation)) {
+                $entity = $evaluation;
+                $this->Flash->error(__('評価の送信に失敗しました。もう一度入力下さい。'));
+            }
         }
         $this->set(compact('bidinfo', 'evaluation', 'entity'));
     }
