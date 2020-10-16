@@ -154,7 +154,7 @@ class EvaluationsController extends AuctionBaseController
         if ($bidinfo->user_id !== $loginId && $bidinfo->biditem->user_id !== $loginId) {
             return $this->redirect(['controller' => 'Auction', 'action' => 'index']);
         }
-        if ($this->request->is('post')) {
+        if ($this->request->is('post') && empty($evaluation) &&  (int)$bidinfo->shipping->is_received === 1) {
             $data = $this->request->data['evaluate'];
             $data['bidinfo_id'] = $bidinfo_id;
             $data['from_user_id'] = $loginId;
