@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Model\Entity;
 
 use Cake\ORM\Entity;
@@ -31,6 +32,8 @@ class Biditem extends Entity
     protected $_accessible = [
         'user_id' => true,
         'name' => true,
+        'detail' => true,
+        'picture_name' => true,
         'finished' => true,
         'endtime' => true,
         'created' => true,
