@@ -3,9 +3,10 @@
 namespace App\Controller;
 
 use App\Controller\AppController;
-
+use App\Model\Entity\Shipping;
 use Cake\Event\Event; // added.
 use Exception; // added.
+use Cake\I18n\Time;
 
 class AuctionController extends AuctionBaseController
 {
@@ -23,6 +24,8 @@ class AuctionController extends AuctionBaseController
 		$this->loadModel('Bidrequests');
 		$this->loadModel('Bidinfo');
 		$this->loadModel('Bidmessages');
+		$this->loadModel('Shippings');
+		$this->loadModel('Evaluations');
 		// ログインしているユーザー情報をauthuserに設定
 		$this->set('authuser', $this->Auth->user());
 		// レイアウトをauctionに変更
@@ -181,6 +184,64 @@ class AuctionController extends AuctionBaseController
 			'order' => ['created' => 'desc']
 		]);
 		$this->set(compact('bidmsgs', 'bidinfo', 'bidmsg'));
+	}
+
+	// 配送情報の表示
+	public function interact($bidinfo_id)
+	{
+		$bidinfo = $this->Bidinfo->get($bidinfo_id, ['contain' => ['Biditems']]); //該当する落札情報抽出
+		$loginId = $this->Auth->user('id'); //ログイン中のユーザーID
+		$entity = $this->Shippings->newEntity();
+		try { //発送先情報が既にあれば抽出し、無ければnullにする
+			$shipping = $this->Shippings->get($bidinfo_id);
+		} catch (Exception $e) {
+			$shipping = null;
+		}
+		// 出品者と落札者のみアクセス可能にし、それ以外のユーザーのアクセスの場合はindexへ戻す。
+		if ($bidinfo->user_id !== $loginId && $bidinfo->biditem->user_id !== $loginId) {
+			return $this->redirect(['controller' => 'Auction', 'action' => 'index']);
+		}
+		if ($this->request->is('post') && isset($this->request->data['info'])) { //配送先に関するフォーム送信があった場合
+			if ($bidinfo->user_id === $loginId && empty($shipping)) { //postにてデータ改ざんがなく、正常な場合
+				$data = $this->request->data['info'];
+				$data['bidinfo_id'] = $bidinfo_id;
+				$data['is_sent'] = 0;
+				$data['is_received'] = 0;
+				$data['created'] = Time::now();
+				$data['updated'] = Time::now();
+				$shipping = $this->Shippings->newEntity($data);
+				if (!empty($shipping) && $this->Shippings->save($shipping)) {
+					$this->Flash->success(__('発送先情報を保存しました。'));
+				} elseif (!empty($shipping)) {
+					$entity = $shipping;
+					$shipping['error'] = 1;
+					$this->Flash->error(__('発送先情報の保存に失敗しました。もう一度入力下さい。'));
+				}
+			}
+		} elseif ($this->request->is('post') && isset($this->request->data['send'])) { //発送ボタンが押された場合
+			if ($bidinfo->biditem->user_id === $loginId) { //postにてデータ改ざんがなく、正常な場合
+				$shipping = $this->Shippings->get($bidinfo_id);
+				$shipping->is_sent = 1;
+				$shipping->updated = Time::now();
+				if (!empty($shipping) && $this->Shippings->save($shipping)) {
+					$this->Flash->success(__('配送確認いたしました。'));
+				} elseif (!empty($shipping)) {
+					$this->Flash->error(__('配送確認に失敗しました。もう一度ボタンを押して下さい。'));
+				}
+			}
+		} elseif ($this->request->is('post') && isset($this->request->data['receive'])) { //受取ボタンが押された場合
+			if ($bidinfo->user_id === $loginId && !empty($shipping) && (int)$shipping->is_sent === 1) { //postにてデータ改ざんがなく、正常な場合
+				$shipping = $this->Shippings->get($bidinfo_id);
+				$shipping->is_received = 1;
+				$shipping->updated = Time::now();
+				if (!empty($shipping) && $this->Shippings->save($shipping)) {
+					$this->Flash->success(__('受取確認いたしました。'));
+				} elseif (!empty($shipping)) {
+					$this->Flash->error(__('受取確認に失敗しました。もう一度ボタンを押して下さい。'));
+				}
+			}
+		}
+		$this->set(compact('bidinfo', 'shipping', 'loginId', 'entity'));
 	}
 
 	// 落札情報の表示

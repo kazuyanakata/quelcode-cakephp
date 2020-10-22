@@ -39,6 +39,7 @@ class User extends Entity
         'biditems' => true,
         'bidmessages' => true,
         'bidrequests' => true,
+        'evaluasions' => true,
     ];
 
     /**
